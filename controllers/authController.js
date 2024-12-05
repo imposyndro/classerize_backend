@@ -1,36 +1,38 @@
-const bcrypt = require('bcryptjs');
+// backend/controllers/authController.js
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
-require('dotenv').config();
+const bcrypt = require('bcrypt');
+const db = require('../db');
 
-// Login user
-const loginUser = (req, res) => {
+exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Please provide all fields' });
-    }
+    try {
+        const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
 
-    // Check if user exists
-    const query = `SELECT * FROM users WHERE email = ?`;
-    db.query(query, [email], (error, results) => {
-        if (error || results.length === 0) {
+        if (rows.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
-        const user = results[0];
+        const user = rows[0];
+        const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
-        // Compare passwords
-        bcrypt.compare(password, user.password_hash, (err, isMatch) => {
-            if (err || !isMatch) {
-                return res.status(401).json({ message: 'Invalid email or password' });
-            }
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
 
-            // Generate a JWT token
-            const token = jwt.sign({ userId: user.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-            res.json({ token });
+        // Generate JWT
+        const token = jwt.sign({ userId: user.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        // Set cookie with the token
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // secure flag only in production
+            maxAge: 3600000, // 1 hour
         });
-    });
-};
 
-module.exports = { loginUser };
+        res.status(200).json({ message: 'Login successful' });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

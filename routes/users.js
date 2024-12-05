@@ -1,8 +1,9 @@
 var express = require('express');
 var router = express.Router();
+const verifyToken = require('../middleware/authMiddleware'); // Import middleware
 
-/* GET users listing. */
-router.get('/', function(req, res, next) {
+// Protected route to get user listing
+router.get('/', verifyToken, function(req, res, next) {
   res.send('respond with a resource');
 });
 

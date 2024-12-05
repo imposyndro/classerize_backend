@@ -1,26 +1,9 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const db = require('./config/db');
+require('dotenv').config(); // Load environment variables from .env
+const app = require('./app'); // Import the app created in app.js
 
-dotenv.config();
-const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000; // Use port from environment variables or default to 5000
 
-
-// Middleware
-app.use(express.json());
-
-// Import routes
-const userRoutes = require('./routes/userRoutes');
-const authRoutes = require('./routes/authRoutes');
-const linkedAccountsRoutes = require('./routes/linkedAccountsRoutes');
-
-// Define routes
-app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/linked-accounts', linkedAccountsRoutes);
-
-// Start server
+// Start the server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });

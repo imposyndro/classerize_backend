@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const db = require('../config/db');
+const db = require('../db');
 
 // Register a new user
 const registerUser = (req, res) => {

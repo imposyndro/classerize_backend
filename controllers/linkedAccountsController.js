@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const db = require('../db');
 
 // Add a linked LMS account
 const addLinkedAccount = (req, res) => {

@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const db = require('../db');
 const bcrypt = require('bcryptjs');
 
 // Function to create a new user
