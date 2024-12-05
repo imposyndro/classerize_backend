@@ -1,4 +1,5 @@
--- Database: classerize
+CREATE DATABASE classerize;
+USE classerize;
 
 -- Users table to store user information
 CREATE TABLE users (
@@ -6,8 +7,20 @@ CREATE TABLE users (
                        username VARCHAR(50) NOT NULL UNIQUE,
                        email VARCHAR(100) NOT NULL UNIQUE,
                        password_hash VARCHAR(255) NOT NULL,
+                       role VARCHAR(50) DEFAULT 'user', -- Add role column for user roles
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Sessions table to manage user sessions and JWT tokens
+CREATE TABLE sessions (
+                          session_id INT AUTO_INCREMENT PRIMARY KEY,
+                          user_id INT NOT NULL,
+                          token VARCHAR(512) NOT NULL, -- Store JWT token or other session info
+                          refresh_token VARCHAR(512),  -- Optional: Store refresh tokens for long-lived sessions
+                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          expires_at DATETIME NOT NULL,
+                          FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 -- Linked Accounts table to store information about linked LMS accounts
