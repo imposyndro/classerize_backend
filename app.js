@@ -10,11 +10,12 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: 'http://localhost:3001',
-    credentials: true, // Ensure cookies are sent with requests
+    origin: 'http://localhost:3001', // Frontend URL
+    credentials: true, // Allow cookies and credentials
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');

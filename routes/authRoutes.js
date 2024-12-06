@@ -31,41 +31,44 @@ router.post('/register', async (req, res) => {
 });
 
 // Login Route
-router.post('/login',  async (req, res) => {
+router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Please provide email and password.' });
-    }
-
     try {
+        console.log('Login attempt for email:', email);
+
         const [userResult] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
         if (userResult.length === 0) {
+            console.log('User not found for email:', email);
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
         const user = userResult[0];
         const isPasswordValid = bcrypt.compareSync(password, user.password_hash);
+        console.log('Password validation:', isPasswordValid);
+
         if (!isPasswordValid) {
+            console.log('Password mismatch for user:', email);
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
         const token = jwt.sign({ userId: user.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        console.log('Token generated successfully for user:', email);
 
-        // Set the token in a secure HTTP-only cookie
         res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 3600000, // 1 hour
+            httpOnly: true, // Ensures the cookie is not accessible via JavaScript
+            secure: process.env.NODE_ENV === 'production', // Set to true only in production
+            sameSite: 'strict', // Prevents CSRF attacks
+            maxAge: 3600000, // Cookie lifespan: 1 hour
         });
 
         res.status(200).json({ message: 'Login successful' });
     } catch (error) {
-        console.error('Database error:', error);
+        console.error('Database or server error:', error);
         res.status(500).json({ message: 'An unexpected error occurred.' });
     }
 });
+
 
 // Logout Route
 router.post('/logout', (req, res) => {
