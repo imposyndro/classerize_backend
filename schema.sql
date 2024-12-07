@@ -1,4 +1,5 @@
-CREATE DATABASE classerize;
+-- Complete schema including `linked_accounts` updates
+CREATE DATABASE IF NOT EXISTS classerize;
 USE classerize;
 
 -- Users table
@@ -17,7 +18,7 @@ CREATE TABLE sessions (
                           session_id INT AUTO_INCREMENT PRIMARY KEY,
                           user_id INT NOT NULL,
                           token VARCHAR(512) NOT NULL,
-                          refresh_token VARCHAR(512),
+                          refresh_token VARCHAR(512) DEFAULT NULL,
                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                           expires_at DATETIME NOT NULL,
                           FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
@@ -31,23 +32,23 @@ CREATE TABLE lms_providers (
                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Linked Accounts table
+-- Updated Linked Accounts table
 CREATE TABLE linked_accounts (
                                  account_id INT AUTO_INCREMENT PRIMARY KEY,
                                  user_id INT NOT NULL,
-                                 lms_name VARCHAR(50) NOT NULL,
-                                 lms_base_url VARCHAR(255) DEFAULT NULL,
-                                 lms_user_id VARCHAR(100) NOT NULL,
-                                 access_token TEXT NOT NULL,
-                                 refresh_token VARCHAR(255),
-                                 token_expiry DATETIME,
-                                 app_key VARCHAR(255) DEFAULT NULL,
-                                 app_secret VARCHAR(255) DEFAULT NULL,
+                                 lms_name VARCHAR(50) NOT NULL,              -- LMS name (e.g., Canvas, Google Classroom)
+                                 lms_base_url VARCHAR(255) DEFAULT NULL,     -- Base URL for LMS API
+                                 lms_user_id VARCHAR(100) DEFAULT NULL,      -- User identifier in the LMS
+                                 access_token VARCHAR(1024) DEFAULT NULL,    -- Encrypted access token
+                                 refresh_token VARCHAR(1024) DEFAULT NULL,   -- Encrypted refresh token
+                                 token_expiry DATETIME DEFAULT NULL,         -- Token expiry timestamp
+                                 api_base_url VARCHAR(255) NOT NULL,         -- LMS API base URL
+                                 api_key VARCHAR(255) DEFAULT NULL,          -- Optional API key for specific LMS
                                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Ensure this column exists
-                                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+                                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                                 UNIQUE (user_id, lms_name)
 );
-
 
 -- Courses table
 CREATE TABLE courses (
@@ -58,8 +59,8 @@ CREATE TABLE courses (
                          course_name VARCHAR(255) NOT NULL,
                          institution_name VARCHAR(100) NOT NULL,
                          lms_name VARCHAR(50) DEFAULT NULL,
-                         start_date DATE,
-                         end_date DATE,
+                         start_date DATE DEFAULT NULL,
+                         end_date DATE DEFAULT NULL,
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                          FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
                          FOREIGN KEY (account_id) REFERENCES linked_accounts(account_id) ON DELETE CASCADE
@@ -71,8 +72,8 @@ CREATE TABLE assignments (
                              course_id INT NOT NULL,
                              lms_assignment_id VARCHAR(100) NOT NULL,
                              assignment_name VARCHAR(255) NOT NULL,
-                             due_date DATETIME,
-                             description TEXT,
+                             due_date DATETIME DEFAULT NULL,
+                             description TEXT DEFAULT NULL,
                              status VARCHAR(50) DEFAULT 'pending',
                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                              FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE
@@ -97,7 +98,7 @@ CREATE TABLE calendar_events (
                                  user_id INT NOT NULL,
                                  event_name VARCHAR(255) NOT NULL,
                                  event_date DATETIME NOT NULL,
-                                 event_type VARCHAR(50),
+                                 event_type VARCHAR(50) DEFAULT NULL,
                                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );

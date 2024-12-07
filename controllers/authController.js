@@ -1,34 +1,36 @@
-const db = require('../db');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const db = require('../db');
 
-// Login user
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const [user] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-            return res.status(401).json({ error: 'Invalid email or password.' });
+        const user = await db.query(`SELECT * FROM users WHERE email = ?`, [email]);
+
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'User not found.' });
         }
 
-        const token = jwt.sign(
-            { userId: user.user_id },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' } // Token expires in 1 hour
-        );
+        const isPasswordValid = bcrypt.compareSync(password, user[0].password_hash);
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Invalid password.' });
+        }
 
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: false, // Set to `true` in production
-            sameSite: 'strict', // Adjust for your cross-origin setup
+        const token = jwt.sign({ userId: user[0].user_id }, process.env.JWT_SECRET, {
+            expiresIn: '7d', // Set token expiry
         });
 
-        res.status(200).json({ message: 'Login successful' });
+        console.log('Generated token:', token); // Debugging
+        res.status(200).json({ message: 'Login successful', token });
     } catch (error) {
-        console.error('Error during login:', error.message);
-        res.status(500).json({ error: 'Failed to log in.' });
+        console.error('Login error:', error.message);
+        res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
+module.exports = { loginUser };
+
 
 
 

@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-const CANVAS_API_BASE_URL = 'https://csumb.instructure.com/api/v1';
-const CANVAS_API_KEY = '2263~7DcQCYWQ8Z33FzFzyUA8JDYEwM6xUzzH7yWQayyNcrt74MwJvFBmYHkvhtYNE2Qw';
+const CANVAS_API_BASE_URL = 'https://canvas.instructure.com/api/v1';
+const CANVAS_API_KEY = '';
 
 const addCourse = async (courseDetails) => {
     const { name, description } = courseDetails;

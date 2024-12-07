@@ -1,9 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/authMiddleware').verifyToken;
-const { getCanvasCourses, getGoogleClassroomCourses } = require('../controllers/lmsController');
+const { fetchCourses } = require('../controllers/lmsController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-router.get('/courses/canvas', verifyToken, getCanvasCourses);
-router.get('/courses/googleclassroom', verifyToken, getGoogleClassroomCourses);
+// Fetch courses for a linked LMS account
+router.get('/courses/:lmsName', verifyToken, async (req, res) => {
+    const { lmsName } = req.params;
+
+    try {
+        if (!lmsName) {
+            return res.status(400).json({ error: 'LMS name is required.' });
+        }
+
+        console.log(`Fetching courses for LMS: ${lmsName}`);
+        await fetchCourses(req, res);
+    } catch (error) {
+        console.error('Error in fetching courses:', error.message);
+        res.status(500).json({ error: 'Failed to fetch courses.' });
+    }
+});
 
 module.exports = router;

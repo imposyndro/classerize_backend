@@ -1,6 +1,7 @@
 const { encrypt, decrypt } = require('../utils/cryptoUtils');
-const { fetchCanvasUserId } = require('../services/lmsService'); // Import the function
 const db = require('../db');
+
+require('dotenv').config();
 
 const saveLinkedAccount = async (req, res) => {
     const { lmsName } = req.params;
@@ -11,8 +12,8 @@ const saveLinkedAccount = async (req, res) => {
             return res.status(400).json({ error: 'LMS name and access token are required.' });
         }
 
-        const apiBaseUrl = 'https://canvas.instructure.com'; // Canvas Base URL
-        const encryptedToken = encrypt(accessToken); // Encrypt the token
+        const apiBaseUrl = lmsName === 'canvas' ? 'https://canvas.instructure.com' : '';
+        const encryptedToken = encrypt(accessToken);
 
         await db.query(
             `INSERT INTO linked_accounts (user_id, lms_name, access_token, api_base_url, created_at)
@@ -29,7 +30,6 @@ const saveLinkedAccount = async (req, res) => {
 };
 
 
-// Get decrypted token for linked LMS
 const getLinkedAccount = async (req, res) => {
     const { lmsName } = req.params;
 
@@ -55,6 +55,5 @@ const getLinkedAccount = async (req, res) => {
         res.status(500).json({ error: 'Failed to retrieve account.' });
     }
 };
-
 
 module.exports = { saveLinkedAccount, getLinkedAccount };
