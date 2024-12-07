@@ -1,37 +1,60 @@
+const { encrypt, decrypt } = require('../utils/cryptoUtils');
+const { fetchCanvasUserId } = require('../services/lmsService'); // Import the function
 const db = require('../db');
 
-// Add a linked LMS account
-const addLinkedAccount = (req, res) => {
-    const { userId, lmsName, lmsUserId } = req.body;
+const saveLinkedAccount = async (req, res) => {
+    const { lmsName } = req.params;
+    const { accessToken } = req.body;
 
-    if (!userId || !lmsName || !lmsUserId) {
-        return res.status(400).json({ message: 'Please provide all fields' });
-    }
-
-    const query = `INSERT INTO linked_accounts (user_id, lms_name, lms_user_id) VALUES (?, ?, ?)`;
-    db.query(query, [userId, lmsName, lmsUserId], (error, results) => {
-        if (error) {
-            return res.status(500).json({ message: 'Error adding linked LMS account' });
+    try {
+        if (!accessToken || !lmsName) {
+            return res.status(400).json({ error: 'LMS name and access token are required.' });
         }
-        res.status(201).json({ message: 'LMS account linked successfully', accountId: results.insertId });
-    });
+
+        const apiBaseUrl = 'https://canvas.instructure.com'; // Canvas Base URL
+        const encryptedToken = encrypt(accessToken); // Encrypt the token
+
+        await db.query(
+            `INSERT INTO linked_accounts (user_id, lms_name, access_token, api_base_url, created_at)
+             VALUES (?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE access_token = ?, api_base_url = ?, updated_at = NOW()`,
+            [req.user.userId, lmsName, encryptedToken, apiBaseUrl, encryptedToken, apiBaseUrl]
+        );
+
+        res.status(201).json({ message: `${lmsName} account linked successfully.` });
+    } catch (error) {
+        console.error('Error saving linked account:', error.message || error);
+        res.status(500).json({ error: 'Failed to link account.' });
+    }
 };
 
-// Get all linked LMS accounts for a user
-const getLinkedAccounts = (req, res) => {
-    const { userId } = req.query;
 
-    if (!userId) {
-        return res.status(400).json({ message: 'User ID is required' });
-    }
+// Get decrypted token for linked LMS
+const getLinkedAccount = async (req, res) => {
+    const { lmsName } = req.params;
 
-    const query = `SELECT * FROM linked_accounts WHERE user_id = ?`;
-    db.query(query, [userId], (error, results) => {
-        if (error) {
-            return res.status(500).json({ message: 'Error fetching linked LMS accounts' });
+    try {
+        const [account] = await db.query(
+            `SELECT access_token FROM linked_accounts WHERE user_id = ? AND lms_name = ?`,
+            [req.user.userId, lmsName]
+        );
+
+        if (!account || !account.access_token) {
+            return res.status(404).json({ error: 'No linked account or access token found.' });
         }
-        res.status(200).json(results);
-    });
+
+        try {
+            const decryptedToken = decrypt(account.access_token);
+            res.json({ accessToken: decryptedToken });
+        } catch (decryptionError) {
+            console.error('Decryption error:', decryptionError.message);
+            return res.status(500).json({ error: 'Failed to decrypt access token.' });
+        }
+    } catch (error) {
+        console.error('Error retrieving linked account:', error.message);
+        res.status(500).json({ error: 'Failed to retrieve account.' });
+    }
 };
 
-module.exports = { addLinkedAccount, getLinkedAccounts };
+
+module.exports = { saveLinkedAccount, getLinkedAccount };

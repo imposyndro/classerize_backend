@@ -48,6 +48,29 @@ const findUserById = (userId, callback) => {
     });
 };
 
+const updateBlackboardBaseUrl = (userId, baseUrl, callback) => {
+    const query = `UPDATE users SET blackboard_base_url = ? WHERE user_id = ?`;
+    db.query(query, [baseUrl, userId], (error, results) => {
+        if (error) {
+            return callback(error);
+        }
+        callback(null, results);
+    });
+};
+
+const getBlackboardBaseUrl = (userId, callback) => {
+    const query = `SELECT blackboard_base_url FROM users WHERE user_id = ?`;
+    db.query(query, [userId], (error, results) => {
+        if (error) {
+            return callback(error, null);
+        }
+        if (results.length === 0) {
+            return callback(null, null); // No URL found
+        }
+        callback(null, results[0].blackboard_base_url);
+    });
+};
+
 module.exports = {
     createUser,
     findUserByEmail,
