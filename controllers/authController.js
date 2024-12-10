@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const db = require('../db');
+const {findUserById} = require("../models/userModel");
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
@@ -29,12 +30,6 @@ const loginUser = async (req, res) => {
     }
 };
 
-module.exports = { loginUser };
-
-
-
-
-
 // Logout user
 const logoutUser = (req, res) => {
     try {
@@ -47,26 +42,30 @@ const logoutUser = (req, res) => {
 };
 
 // Get user profile
-const getProfile = async (req, res) => {
+const getCurrentUser = async (req, res) => {
+    const userId = req.user.userId;
+
     try {
-        const userId = req.user.userId;
+        const [user] = await db.query('SELECT username, email FROM users WHERE user_id = ?', [userId]);
 
-        // Fetch user profile
-        const user = await db.query('SELECT username, email FROM users WHERE user_id = ?', [userId]);
-
-        if (user.length === 0) {
+        if (!user || user.length === 0) {
+            console.warn(`User not found for ID: ${userId}`); // Log a warning, not an error
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ profile: user[0] });
+        res.status(200).json({ username: user[0].username, email: user[0].email });
     } catch (error) {
-        console.error('Error fetching profile:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error fetching user:', error.message); // Log errors for debugging
+        res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
+
+
+
 
 module.exports = {
     loginUser,
     logoutUser,
-    getProfile,
+    getCurrentUser,
 };

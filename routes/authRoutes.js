@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const { verifyToken } = require('../middleware/authMiddleware');
 const db = require('../db');
 const {getUserProfile} = require("../controllers/userController");
+const {getCurrentUser } = require('../controllers/authController');
 
 // Login Route
 router.post('/login', async (req, res) => {
@@ -62,6 +63,10 @@ router.get('/dashboard', verifyToken, async (req, res) => {
     }
 });
 
-router.get('/info', verifyToken, getUserProfile);
+router.get('/', verifyToken, getUserProfile);
+
+router.get('/current-user', verifyToken, getCurrentUser);
+
+
 
 module.exports = router;
