@@ -1,3 +1,5 @@
+DROP DATABASE IF EXISTS classerize;
+
 CREATE DATABASE classerize;
 USE classerize;
 
@@ -32,8 +34,11 @@ CREATE TABLE linked_accounts (
                                  access_token VARCHAR(255) NOT NULL, -- Token to interact with LMS APIs
                                  refresh_token VARCHAR(255),
                                  token_expiry DATETIME,
+                                 api_base_url VARCHAR(255), -- Base URL for LMS APIs
+                                 title VARCHAR(255) DEFAULT NULL, -- User-defined title for the account
                                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+                                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                                 INDEX idx_user_lms (user_id, lms_name) -- Non-unique composite index
 );
 
 -- Courses table to store course information aggregated from different LMS platforms
@@ -71,7 +76,6 @@ CREATE TABLE express_sessions (
                                   data TEXT COLLATE utf8mb4_bin,
                                   PRIMARY KEY (session_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-
 
 -- Notifications table to store reminders for assignments and deadlines
 CREATE TABLE notifications (

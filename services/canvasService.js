@@ -1,30 +1,22 @@
-const axios = require('axios');
+const axios = require("axios");
 
-const CANVAS_API_BASE_URL = 'https://canvas.instructure.com/api/v1';
-const CANVAS_API_KEY = '';
+class CanvasService {
+    constructor(baseUrl, token) {
+        this.client = axios.create({
+            baseURL: baseUrl,
+            headers: { Authorization: `Bearer ${token}` },
+        });
+    }
 
-const addCourse = async (courseDetails) => {
-    const { name, description } = courseDetails;
+    async getUserProfile() {
+        const response = await this.client.get("/users/self");
+        return response.data;
+    }
 
-    const payload = {
-        course: {
-            name,
-            course_code: name,
-            start_at: new Date().toISOString(),
-            is_public: false,
-            description,
-        },
-    };
+    async getCourses() {
+        const response = await this.client.get("/courses");
+        return response.data;
+    }
+}
 
-    const response = await axios.post(
-        `${CANVAS_API_BASE_URL}/accounts/self/courses`,
-        payload,
-        {
-            headers: { Authorization: `Bearer ${CANVAS_API_KEY}` },
-        }
-    );
-
-    return response.data;
-};
-
-module.exports = { addCourse };
+module.exports = CanvasService;
