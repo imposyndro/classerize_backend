@@ -138,11 +138,11 @@ const linkCanvasAccount = async (req, res) => {
             `INSERT INTO linked_accounts (user_id, lms_name, lms_user_id, access_token, api_base_url, created_at)
              VALUES (?, ?, ?, ?, ?, NOW())`,
             [
-                req.user.userId, // The user's ID from the token
-                'Canvas',        // The name of the LMS
-                canvasUser.id,   // The LMS-specific user ID
-                token,           // The access token for Canvas
-                apiBaseUrl,      // The base URL for the Canvas API
+                req.user.userId,
+                'Canvas',
+                canvasUser.id,
+                token,
+                apiBaseUrl,
             ]
         );
 
