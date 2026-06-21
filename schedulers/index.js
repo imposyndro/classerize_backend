@@ -23,9 +23,13 @@ const startSchedulers = () => {
         return;
     }
 
-    const connection = { url: process.env.REDIS_URL };
+    const connection = { url: process.env.REDIS_URL, enableOfflineQueue: false, lazyConnect: true };
     const notifQueue = new Queue('notification-dispatch', { connection });
     const gcalQueue  = new Queue('google-calendar-sync',  { connection });
+
+    // Suppress unhandled Redis connection errors — workers log their own failures
+    notifQueue.on('error', () => {});
+    gcalQueue.on('error',  () => {});
 
     // ── Deadline alerts — every 30 minutes ───────────────────────────────────
     const runDeadlineAlerts = async () => {
