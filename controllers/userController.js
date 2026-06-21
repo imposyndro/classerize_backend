@@ -1,6 +1,8 @@
 const db = require('../db');
 const bcrypt = require('bcrypt');
 const { body, validationResult } = require('express-validator');
+const { encrypt, decrypt } = require('../utils/cryptoutils');
+const { ALLOWED_MODELS, DEFAULT_MODEL } = require('../services/aiService');
 
 // Validation chain — attach to route before this handler
 const registerValidation = [
@@ -54,4 +56,66 @@ const getUserProfile = async (req, res, next) => {
     }
 };
 
-module.exports = { registerUser, registerValidation, getUserProfile };
+// GET /api/users/ai-settings
+const getAISettings = async (req, res, next) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT subscription_tier, gemini_api_key, ai_model FROM users WHERE user_id = ?',
+            [req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'User not found' });
+
+        const { subscription_tier, gemini_api_key, ai_model } = rows[0];
+        res.json({
+            subscription_tier,
+            has_byok_key: !!gemini_api_key,
+            ai_model: ai_model || DEFAULT_MODEL,
+            allowed_models: [...ALLOWED_MODELS],
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/users/ai-settings
+// Body: { gemini_api_key?: string (plain text — will be encrypted), ai_model?: string, clear_key?: boolean }
+const updateAISettings = async (req, res, next) => {
+    try {
+        const { gemini_api_key, ai_model, clear_key } = req.body;
+
+        const updates = {};
+
+        if (clear_key) {
+            updates.gemini_api_key = null;
+            updates.ai_model = null;
+        } else {
+            if (gemini_api_key !== undefined) {
+                if (gemini_api_key === '') {
+                    updates.gemini_api_key = null;
+                } else {
+                    updates.gemini_api_key = encrypt(gemini_api_key);
+                }
+            }
+
+            if (ai_model !== undefined) {
+                if (!ALLOWED_MODELS.has(ai_model)) {
+                    return res.status(400).json({ error: `Unknown model. Allowed: ${[...ALLOWED_MODELS].join(', ')}` });
+                }
+                updates.ai_model = ai_model;
+            }
+        }
+
+        if (!Object.keys(updates).length) {
+            return res.status(400).json({ error: 'No valid fields to update.' });
+        }
+
+        const cols = Object.keys(updates).map((k) => `${k} = ?`).join(', ');
+        await db.query(`UPDATE users SET ${cols} WHERE user_id = ?`, [...Object.values(updates), req.user.userId]);
+
+        res.json({ message: 'AI settings updated.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { registerUser, registerValidation, getUserProfile, getAISettings, updateAISettings };

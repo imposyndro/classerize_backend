@@ -1,5 +1,30 @@
 const db = require('../db');
+const { decrypt } = require('../utils/cryptoutils');
 const { summarizeAssignment, generateStudySchedule, assessUrgency } = require('../services/aiService');
+
+/**
+ * Resolve AI call options for the authenticated user.
+ * Priority: BYOK key (decrypted) > platform key based on tier.
+ */
+const resolveAIOptions = async (userId) => {
+    const [rows] = await db.query(
+        'SELECT subscription_tier, gemini_api_key, ai_model FROM users WHERE user_id = ?',
+        [userId]
+    );
+    if (!rows.length) return {};
+
+    const { subscription_tier, gemini_api_key, ai_model } = rows[0];
+
+    if (gemini_api_key) {
+        try {
+            return { apiKey: decrypt(gemini_api_key), model: ai_model || undefined };
+        } catch {
+            // Decryption failure — fall back to platform key
+        }
+    }
+
+    return { tier: subscription_tier };
+};
 
 // GET /api/ai/study-schedule
 const studySchedule = async (req, res, next) => {
@@ -14,7 +39,8 @@ const studySchedule = async (req, res, next) => {
             [req.user.userId]
         );
 
-        const schedule = await generateStudySchedule(assignments);
+        const aiOptions = await resolveAIOptions(req.user.userId);
+        const schedule = await generateStudySchedule(assignments, aiOptions);
         res.json({ schedule });
     } catch (err) {
         next(err);
@@ -34,14 +60,15 @@ const urgencyAssessment = async (req, res, next) => {
             [req.user.userId]
         );
 
-        const urgency = await assessUrgency(assignments);
+        const aiOptions = await resolveAIOptions(req.user.userId);
+        const urgency = await assessUrgency(assignments, aiOptions);
         res.json({ urgency });
     } catch (err) {
         next(err);
     }
 };
 
-// POST /api/ai/summarize/:assignmentId — sync summarize (no queue, dev-friendly)
+// POST /api/ai/summarize/:assignmentId
 const summarizeOne = async (req, res, next) => {
     const { assignmentId } = req.params;
     try {
@@ -55,7 +82,8 @@ const summarizeOne = async (req, res, next) => {
         );
         if (!rows.length) return res.status(404).json({ error: 'Assignment not found.' });
 
-        const summary = await summarizeAssignment(rows[0]);
+        const aiOptions = await resolveAIOptions(req.user.userId);
+        const summary = await summarizeAssignment(rows[0], aiOptions);
         await db.query('UPDATE assignments SET ai_summary = ? WHERE assignment_id = ?', [summary, assignmentId]);
         res.json({ summary });
     } catch (err) {

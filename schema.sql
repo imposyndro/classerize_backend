@@ -12,9 +12,12 @@ CREATE TABLE users (
     email          VARCHAR(100) NOT NULL UNIQUE,
     password_hash  VARCHAR(255) NULL,              -- NULL for Google SSO-only accounts
     google_id      VARCHAR(100) NULL UNIQUE,       -- Google OAuth subject ID
-    role           VARCHAR(50)  NOT NULL DEFAULT 'user',
-    created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    role              VARCHAR(50)  NOT NULL DEFAULT 'user',
+    subscription_tier ENUM('free','pro') NOT NULL DEFAULT 'free',
+    gemini_api_key    VARCHAR(512) NULL COMMENT 'AES-256-CBC encrypted BYOK key',
+    ai_model          VARCHAR(100) NULL COMMENT 'Preferred model when using BYOK key',
+    created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ── Linked LMS Accounts ───────────────────────────────────────────────────────
