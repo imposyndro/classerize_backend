@@ -13,6 +13,30 @@ const BlackboardService = require('./blackboardService');
 const GoogleClassroomService = require('./googleClassroomService');
 const MoodleService = require('./moodleService');
 
+// Enqueue AI summary jobs for assignments that don't have one yet.
+// Only runs when Redis is configured; silently skips otherwise.
+const enqueueAISummaryJobs = async (userId) => {
+    if (!process.env.REDIS_URL) return;
+    try {
+        const { Queue } = require('bullmq');
+        const queue = new Queue('ai-summary', { connection: { url: process.env.REDIS_URL } });
+
+        const [rows] = await db.query(
+            'SELECT assignment_id FROM assignments WHERE user_id = ? AND ai_summary IS NULL',
+            [userId]
+        );
+        for (const { assignment_id } of rows) {
+            await queue.add('summarize', { assignmentId: assignment_id }, {
+                attempts: 2,
+                backoff: { type: 'exponential', delay: 5000 },
+            });
+        }
+        await queue.close();
+    } catch (err) {
+        console.warn('[sync] AI summary enqueue failed (non-fatal):', err.message);
+    }
+};
+
 /**
  * Sync all data for one linked account.
  */
@@ -149,6 +173,7 @@ const syncCanvas = async (account, plainToken, userId) => {
     }
 
     await db.query('UPDATE linked_accounts SET last_synced = NOW() WHERE account_id = ?', [account.account_id]);
+    await enqueueAISummaryJobs(userId);
     return { coursesUpserted, assignmentsUpserted, calendarEventsUpserted };
 };
 
@@ -174,6 +199,7 @@ const syncBlackboard = async (account, plainToken, userId) => {
     }
 
     await db.query('UPDATE linked_accounts SET last_synced = NOW() WHERE account_id = ?', [account.account_id]);
+    await enqueueAISummaryJobs(userId);
     return { coursesUpserted, assignmentsUpserted };
 };
 
@@ -199,6 +225,7 @@ const syncGoogleClassroom = async (account, plainToken, refreshToken, userId) =>
     }
 
     await db.query('UPDATE linked_accounts SET last_synced = NOW() WHERE account_id = ?', [account.account_id]);
+    await enqueueAISummaryJobs(userId);
     return { coursesUpserted, assignmentsUpserted };
 };
 
@@ -224,6 +251,7 @@ const syncMoodle = async (account, plainToken, userId) => {
     }
 
     await db.query('UPDATE linked_accounts SET last_synced = NOW() WHERE account_id = ?', [account.account_id]);
+    await enqueueAISummaryJobs(userId);
     return { coursesUpserted, assignmentsUpserted };
 };
 
