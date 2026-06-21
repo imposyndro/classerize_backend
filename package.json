@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node bin/www.js",
     "dev": "nodemon server.js",
+    "seed": "node scripts/seed.js",
     "test": "jest --testEnvironment=node --forceExit",
     "test:watch": "jest --testEnvironment=node --watch"
   },
