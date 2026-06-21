@@ -1,53 +1,57 @@
 const db = require('../db');
 const bcrypt = require('bcrypt');
+const { body, validationResult } = require('express-validator');
 
+// Validation chain — attach to route before this handler
+const registerValidation = [
+    body('username').trim().isLength({ min: 3, max: 50 }).withMessage('Username must be 3–50 characters'),
+    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('password')
+        .isLength({ min: 8 })
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/)
+        .withMessage('Password must be 8+ chars with uppercase, lowercase, number, and special character'),
+];
 
-// Register a new user
-const registerUser = async (req, res) => {
-    const { username, email, password } = req.body;
-
-    // Define strong password policy
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-        return res.status(400).json({
-            error: 'Password must be at least 8 characters long, include one uppercase letter, one lowercase letter, one number, and one special character.',
-        });
+const registerUser = async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
     }
 
+    const { username, email, password } = req.body;
+
     try {
-        const hashedPassword = await bcrypt.hash(password, 10); // Hash the password
+        // Check uniqueness
+        const [existing] = await db.query(
+            'SELECT user_id FROM users WHERE email = ? OR username = ?',
+            [email, username]
+        );
+        if (existing.length) {
+            return res.status(409).json({ error: 'Email or username already in use.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
         const [result] = await db.query(
             'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
             [username, email, hashedPassword]
         );
-
         res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
-    } catch (error) {
-        console.error('Error registering user:', error);
-        res.status(500).json({ error: 'Failed to register user' });
+    } catch (err) {
+        next(err);
     }
 };
 
-// Get user profile
-const getUserProfile = async (req, res) => {
+const getUserProfile = async (req, res, next) => {
     try {
         const [rows] = await db.query(
             'SELECT username, email, created_at FROM users WHERE user_id = ?',
             [req.user.userId]
         );
-
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
+        if (!rows.length) return res.status(404).json({ error: 'User not found' });
         res.json(rows[0]);
-    } catch (error) {
-        console.error('Error fetching user profile:', error);
-        res.status(500).json({ error: 'Database error' });
+    } catch (err) {
+        next(err);
     }
 };
 
-module.exports = {
-    registerUser,
-    getUserProfile,
-};
+module.exports = { registerUser, registerValidation, getUserProfile };

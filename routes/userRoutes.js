@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, getUserProfile } = require('../controllers/userController');
-const verifyToken = require('../middleware/authMiddleware');
+const { registerUser, registerValidation, getUserProfile } = require('../controllers/userController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// Route to register a new user
-router.post('/register', registerUser);
+// POST /api/users/register
+router.post('/register', registerValidation, registerUser);
+
+// GET /api/users/profile
+router.get('/profile', verifyToken, getUserProfile);
 
 module.exports = router;

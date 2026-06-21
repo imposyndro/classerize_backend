@@ -2,25 +2,34 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
 const { verifyToken } = require('../middleware/authMiddleware');
 const db = require('../db');
-const {getUserProfile} = require("../controllers/userController");
-const {getCurrentUser } = require('../controllers/authController');
+const { getCurrentUser } = require('../controllers/authController');
 
-// Login Route
-router.post('/login', async (req, res) => {
+const loginValidation = [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('password').notEmpty().withMessage('Password required'),
+];
+
+// POST /api/auth/login
+router.post('/login', loginValidation, async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     const { email, password } = req.body;
 
     try {
-        const [userResult] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (userResult.length === 0) {
+        const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+        if (!rows.length) {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
-        const user = userResult[0];
-        const isPasswordValid = bcrypt.compareSync(password, user.password_hash);
-
-        if (!isPasswordValid) {
+        const user = rows[0];
+        const valid = await bcrypt.compare(password, user.password_hash);
+        if (!valid) {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
@@ -29,44 +38,27 @@ router.post('/login', async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 3600000, // 1 hour
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            maxAge: 3600000,
         });
 
-        res.status(200).json({ message: 'Login successful' });
-    } catch (error) {
-        console.error('Error during login:', error);
-        res.status(500).json({ message: 'An unexpected error occurred.' });
+        res.json({ message: 'Login successful', userId: user.user_id });
+    } catch (err) {
+        next(err);
     }
 });
 
-// Logout Route
+// POST /api/auth/logout
 router.post('/logout', (req, res) => {
-    res.clearCookie('token');
-    res.status(200).json({ message: 'Logout successful' });
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    });
+    res.json({ message: 'Logged out.' });
 });
 
-// Dashboard Route
-router.get('/dashboard', verifyToken, async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const [user] = await db.query('SELECT username, email FROM users WHERE user_id = ?', [userId]);
-
-        if (user.length === 0) {
-            return res.status(404).json({ error: 'User not found.' });
-        }
-
-        res.status(200).json({ message: 'Welcome to your dashboard', user: user[0] });
-    } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        res.status(500).json({ error: 'Failed to load dashboard data.' });
-    }
-});
-
-router.get('/', verifyToken, getUserProfile);
-
+// GET /api/auth/current-user
 router.get('/current-user', verifyToken, getCurrentUser);
-
-
 
 module.exports = router;

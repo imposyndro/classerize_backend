@@ -1,66 +1,82 @@
+/**
+ * blackboardService.js — Phase 4 full implementation
+ *
+ * Blackboard uses OAuth2 client_credentials for system-level tokens
+ * and a 3-legged OAuth2 flow for user-scoped tokens.
+ *
+ * Per-user linking flow:
+ * 1. User provides their institution's Blackboard URL + an OAuth app key/secret
+ *    (or we use our registered app and redirect them through the authorization code flow)
+ * 2. We exchange for a user-scoped access token and store it encrypted.
+ *
+ * For now: token-based auth (user provides a REST API token from Blackboard UI).
+ */
+
 const axios = require('axios');
 
-
-const BLACKBOARD_API_BASE_URL = 'https://<your-blackboard-instance>/learn/api/public/v1';
-
-const CLIENT_ID = 'Db6f7043-45e2-45c7-a157-f5d57c680dde';
-const CLIENT_SECRET = '3jnEy09jr9YhQSFoT3nYaiv2b65BLBlg';
-
-// Function to fetch access token
-const getAccessToken = async () => {
-    try {
-        const response = await axios.post(`${BLACKBOARD_API_BASE_URL}/oauth2/token`, null, {
-            params: {
-                grant_type: 'client_credentials',
-            },
-            auth: {
-                username: CLIENT_ID,
-                password: CLIENT_SECRET,
-            },
-        });
-
-        return response.data.access_token;
-    } catch (error) {
-        console.error('Error fetching Blackboard access token:', error.response?.data || error.message);
-        throw new Error('Failed to authenticate with Blackboard');
-    }
-};
-
-// Function to fetch courses
-const fetchCourses = async (accessToken) => {
-    try {
-        const response = await axios.get(`${BLACKBOARD_API_BASE_URL}/courses`, {
+class BlackboardService {
+    /**
+     * @param {string} baseUrl  e.g. 'https://institution.blackboard.com/learn/api/public/v1'
+     * @param {string} token    Plain-text user access token (decrypted before passing in)
+     */
+    constructor(baseUrl, token) {
+        this.client = axios.create({
+            baseURL: baseUrl.replace(/\/$/, ''),
             headers: {
-                Authorization: `Bearer ${accessToken}`,
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
             },
         });
-
-        return response.data.results;
-    } catch (error) {
-        console.error('Error fetching Blackboard courses:', error.response?.data || error.message);
-        throw new Error('Failed to fetch courses from Blackboard');
     }
-};
 
-// Function to add a course
-const addCourse = async (accessToken, courseData) => {
-    try {
-        const response = await axios.post(
-            `${BLACKBOARD_API_BASE_URL}/courses`,
-            courseData,
-            {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-            }
+    async getCourses() {
+        const { data } = await this.client.get('/courses', {
+            params: { fields: 'id,name,courseId,ultraStatus,enrollment', limit: 200 },
+        });
+        return data.results || [];
+    }
+
+    async getAssignments(courseId) {
+        const { data } = await this.client.get(`/courses/${courseId}/contents`, {
+            params: { fields: 'id,title,contentHandler,availability,dates,grading', limit: 200 },
+        });
+        // Blackboard returns contents; filter to assignment-type items
+        return (data.results || []).filter(
+            (c) => c.contentHandler?.id === 'resource/x-bb-assignment'
         );
-
-        return response.data;
-    } catch (error) {
-        console.error('Error adding Blackboard course:', error.response?.data || error.message);
-        throw new Error('Failed to add course to Blackboard');
     }
-};
 
-module.exports = { getAccessToken, fetchCourses, addCourse };
+    async getGrades(courseId) {
+        const { data } = await this.client.get(`/courses/${courseId}/gradebook/columns`, {
+            params: { fields: 'id,name,score', limit: 200 },
+        });
+        return data.results || [];
+    }
+
+    /**
+     * Normalize a Blackboard course to the internal format used by syncService.
+     */
+    static normalizeCourse(bbCourse) {
+        return {
+            lms_course_id: bbCourse.id,
+            course_name: bbCourse.name,
+            course_code: bbCourse.courseId || null,
+            start_at: bbCourse.term?.startDate || null,
+            end_at: bbCourse.term?.endDate || null,
+        };
+    }
+
+    static normalizeAssignment(bbContent) {
+        return {
+            lms_assignment_id: bbContent.id,
+            assignment_name: bbContent.title,
+            // BB content due date lives in grading.due or dates.due
+            due_date: bbContent.grading?.due || bbContent.dates?.due || null,
+            description: bbContent.description?.rawText || null,
+            // Score is nested in grading.score.possible
+            points_possible: bbContent.grading?.score?.possible || null,
+        };
+    }
+}
+
+module.exports = BlackboardService;

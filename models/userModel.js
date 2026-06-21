@@ -1,78 +1,41 @@
 const db = require('../db');
 const bcrypt = require('bcryptjs');
 
-// Function to create a new user
-const createUser = (username, email, password, callback) => {
-    // Hash the password
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
-        if (err) {
-            return callback(err, null);
-        }
-
-        // Insert user into the database
-        const query = `INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)`;
-        db.query(query, [username, email, hashedPassword], (error, results) => {
-            if (error) {
-                return callback(error, null);
-            }
-            callback(null, results.insertId);
-        });
-    });
+const createUser = async (username, email, password) => {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [result] = await db.query(
+        'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        [username, email, hashedPassword]
+    );
+    return result.insertId;
 };
 
-// Function to find a user by email
-const findUserByEmail = (email, callback) => {
-    const query = `SELECT * FROM users WHERE email = ?`;
-    db.query(query, [email], (error, results) => {
-        if (error) {
-            return callback(error, null);
-        }
-        if (results.length === 0) {
-            return callback(null, null); // No user found
-        }
-        callback(null, results[0]);
-    });
+const findUserByEmail = async (email) => {
+    const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    return rows[0] || null;
 };
 
-// Function to find a user by ID
-const findUserById = (userId, callback) => {
-    const query = `SELECT * FROM users WHERE user_id = ?`;
-    db.query(query, [userId], (error, results) => {
-        if (error) {
-            return callback(error, null);
-        }
-        if (results.length === 0) {
-            return callback(null, null); // No user found
-        }
-        callback(null, results[0]);
-    });
+const findUserById = async (userId) => {
+    const [rows] = await db.query('SELECT * FROM users WHERE user_id = ?', [userId]);
+    return rows[0] || null;
 };
 
-const updateBlackboardBaseUrl = (userId, baseUrl, callback) => {
-    const query = `UPDATE users SET blackboard_base_url = ? WHERE user_id = ?`;
-    db.query(query, [baseUrl, userId], (error, results) => {
-        if (error) {
-            return callback(error);
+const findOrCreateGoogleUser = async ({ googleId, email, username }) => {
+    const [rows] = await db.query('SELECT * FROM users WHERE google_id = ? OR email = ?', [googleId, email]);
+    if (rows[0]) {
+        // If user exists but doesn't have google_id yet, attach it
+        if (!rows[0].google_id) {
+            await db.query('UPDATE users SET google_id = ? WHERE user_id = ?', [googleId, rows[0].user_id]);
         }
-        callback(null, results);
-    });
+        return rows[0];
+    }
+    // New Google user — no password required
+    const [result] = await db.query(
+        'INSERT INTO users (username, email, google_id) VALUES (?, ?, ?)',
+        [username, email, googleId]
+    );
+    const [newRows] = await db.query('SELECT * FROM users WHERE user_id = ?', [result.insertId]);
+    return newRows[0];
 };
 
-const getBlackboardBaseUrl = (userId, callback) => {
-    const query = `SELECT blackboard_base_url FROM users WHERE user_id = ?`;
-    db.query(query, [userId], (error, results) => {
-        if (error) {
-            return callback(error, null);
-        }
-        if (results.length === 0) {
-            return callback(null, null); // No URL found
-        }
-        callback(null, results[0].blackboard_base_url);
-    });
-};
-
-module.exports = {
-    createUser,
-    findUserByEmail,
-    findUserById
-};
+module.exports = { createUser, findUserByEmail, findUserById, findOrCreateGoogleUser };
