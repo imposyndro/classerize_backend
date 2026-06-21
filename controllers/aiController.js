@@ -1,5 +1,5 @@
 const db = require('../db');
-const { generateStudySchedule, assessUrgency } = require('../services/aiService');
+const { summarizeAssignment, generateStudySchedule, assessUrgency } = require('../services/aiService');
 
 // GET /api/ai/study-schedule
 const studySchedule = async (req, res, next) => {
@@ -41,4 +41,26 @@ const urgencyAssessment = async (req, res, next) => {
     }
 };
 
-module.exports = { studySchedule, urgencyAssessment };
+// POST /api/ai/summarize/:assignmentId — sync summarize (no queue, dev-friendly)
+const summarizeOne = async (req, res, next) => {
+    const { assignmentId } = req.params;
+    try {
+        const [rows] = await db.query(
+            `SELECT a.assignment_id, a.assignment_name, a.description, a.due_date, a.points_possible,
+                    c.course_name
+             FROM assignments a
+             JOIN courses c ON a.course_id = c.course_id
+             WHERE a.assignment_id = ? AND a.user_id = ?`,
+            [assignmentId, req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'Assignment not found.' });
+
+        const summary = await summarizeAssignment(rows[0]);
+        await db.query('UPDATE assignments SET ai_summary = ? WHERE assignment_id = ?', [summary, assignmentId]);
+        res.json({ summary });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { studySchedule, urgencyAssessment, summarizeOne };

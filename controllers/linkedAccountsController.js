@@ -70,7 +70,7 @@ const saveLinkedAccount = async (req, res, next) => {
 const getLinkedAccounts = async (req, res, next) => {
     try {
         const [accounts] = await db.query(
-            'SELECT account_id, lms_name, lms_user_id, api_base_url, title, created_at FROM linked_accounts WHERE user_id = ?',
+            'SELECT account_id, lms_name, lms_user_id, api_base_url, title, last_synced, created_at FROM linked_accounts WHERE user_id = ?',
             [req.user.userId]
         );
         res.status(200).json(accounts); // Always 200, empty array is valid
