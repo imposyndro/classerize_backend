@@ -22,13 +22,15 @@ const aiRoutes             = require('./routes/aiRoutes');
 const searchRoutes         = require('./routes/searchRoutes');
 const scheduleRoutes       = require('./routes/scheduleRoutes');
 const focusRoutes          = require('./routes/focusRoutes');
+const syllabusRoutes       = require('./routes/syllabusRoutes');
+const flashcardRoutes      = require('./routes/flashcardRoutes');
 const errorHandler         = require('./middleware/errorHandler');
 
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3001',
@@ -71,6 +73,8 @@ app.use('/api/ai',              aiRoutes);
 app.use('/api/search',          searchRoutes);
 app.use('/api/schedule',        scheduleRoutes);
 app.use('/api/focus',           focusRoutes);
+app.use('/api/syllabus',        syllabusRoutes);
+app.use('/api/flashcards',      flashcardRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));
