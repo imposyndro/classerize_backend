@@ -19,6 +19,7 @@ const gradeRoutes          = require('./routes/gradeRoutes');
 const calendarRoutes       = require('./routes/calendarRoutes');
 const notificationRoutes   = require('./routes/notificationRoutes');
 const aiRoutes             = require('./routes/aiRoutes');
+const searchRoutes         = require('./routes/searchRoutes');
 const errorHandler         = require('./middleware/errorHandler');
 
 const app = express();
@@ -65,6 +66,7 @@ app.use('/api/grades',          gradeRoutes);
 app.use('/api/calendar',        calendarRoutes);
 app.use('/api/notifications',   notificationRoutes);
 app.use('/api/ai',              aiRoutes);
+app.use('/api/search',          searchRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));

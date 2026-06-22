@@ -4,7 +4,7 @@ const db = require('../db');
 const getCurrentUser = async (req, res, next) => {
     try {
         const [rows] = await db.query(
-            'SELECT user_id, username, email, created_at FROM users WHERE user_id = ?',
+            'SELECT user_id, username, email, study_streak, last_active_date, created_at FROM users WHERE user_id = ?',
             [req.user.userId]
         );
         if (!rows.length) return res.status(404).json({ error: 'User not found' });

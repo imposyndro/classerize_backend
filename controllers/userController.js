@@ -118,4 +118,37 @@ const updateAISettings = async (req, res, next) => {
     }
 };
 
-module.exports = { registerUser, registerValidation, getUserProfile, getAISettings, updateAISettings };
+// POST /api/users/ping — update study streak (call once per session)
+const pingStreak = async (req, res, next) => {
+    const userId = req.user.userId;
+    try {
+        const [[user]] = await db.query(
+            'SELECT study_streak, last_active_date FROM users WHERE user_id = ?',
+            [userId]
+        );
+
+        const today = new Date().toISOString().slice(0, 10);
+        const last  = user.last_active_date
+            ? new Date(user.last_active_date).toISOString().slice(0, 10)
+            : null;
+
+        if (last === today) {
+            // Already counted today
+            return res.json({ study_streak: user.study_streak, message: 'already counted today' });
+        }
+
+        const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+        const newStreak  = last === yesterday ? user.study_streak + 1 : 1;
+
+        await db.query(
+            'UPDATE users SET study_streak = ?, last_active_date = ? WHERE user_id = ?',
+            [newStreak, today, userId]
+        );
+
+        res.json({ study_streak: newStreak });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { registerUser, registerValidation, getUserProfile, getAISettings, updateAISettings, pingStreak };

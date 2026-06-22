@@ -42,8 +42,11 @@ const getPreferences = async (req, res, next) => {
             [req.user.userId]
         );
         if (!rows.length) {
-            // Return defaults
-            return res.json({ email_enabled: true, web_enabled: true, daily_digest: true, deadline_hours: 24 });
+            return res.json({
+                email_enabled: true, web_enabled: true,
+                daily_digest: true, deadline_hours: 24,
+                grade_drop_threshold: null,
+            });
         }
         res.json(rows[0]);
     } catch (err) {
@@ -53,18 +56,27 @@ const getPreferences = async (req, res, next) => {
 
 // PUT /api/notifications/preferences
 const updatePreferences = async (req, res, next) => {
-    const { email_enabled, web_enabled, daily_digest, deadline_hours } = req.body;
+    const { email_enabled, web_enabled, daily_digest, deadline_hours, grade_drop_threshold } = req.body;
     try {
         await db.query(
-            `INSERT INTO notification_preferences (user_id, email_enabled, web_enabled, daily_digest, deadline_hours)
-             VALUES (?, ?, ?, ?, ?)
+            `INSERT INTO notification_preferences
+                (user_id, email_enabled, web_enabled, daily_digest, deadline_hours, grade_drop_threshold)
+             VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
-                email_enabled = VALUES(email_enabled),
-                web_enabled   = VALUES(web_enabled),
-                daily_digest  = VALUES(daily_digest),
-                deadline_hours = VALUES(deadline_hours),
-                updated_at = NOW()`,
-            [req.user.userId, email_enabled ?? true, web_enabled ?? true, daily_digest ?? true, deadline_hours ?? 24]
+                email_enabled         = VALUES(email_enabled),
+                web_enabled           = VALUES(web_enabled),
+                daily_digest          = VALUES(daily_digest),
+                deadline_hours        = VALUES(deadline_hours),
+                grade_drop_threshold  = VALUES(grade_drop_threshold),
+                updated_at            = NOW()`,
+            [
+                req.user.userId,
+                email_enabled ?? true,
+                web_enabled   ?? true,
+                daily_digest  ?? true,
+                deadline_hours ?? 24,
+                grade_drop_threshold ?? null,
+            ]
         );
         res.json({ message: 'Preferences updated.' });
     } catch (err) {
