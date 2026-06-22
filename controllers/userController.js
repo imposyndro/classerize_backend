@@ -151,4 +151,17 @@ const pingStreak = async (req, res, next) => {
     }
 };
 
-module.exports = { registerUser, registerValidation, getUserProfile, getAISettings, updateAISettings, pingStreak };
+// PATCH /api/users/onboarding — mark onboarding complete
+const completeOnboarding = async (req, res, next) => {
+    try {
+        await db.query(
+            'UPDATE users SET onboarding_complete = TRUE WHERE user_id = ?',
+            [req.user.userId]
+        );
+        res.json({ message: 'Onboarding complete.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { registerUser, registerValidation, getUserProfile, getAISettings, updateAISettings, pingStreak, completeOnboarding };

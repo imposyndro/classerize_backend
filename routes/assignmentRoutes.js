@@ -6,10 +6,12 @@ const {
     createAssignment,
     updateAssignmentStatus,
     updateProgress,
+    getSuggestions,
     listAssignmentsValidation,
     createAssignmentValidation,
 } = require('../controllers/assignmentController');
 
+router.get('/suggestions',       verifyToken, getSuggestions);
 router.get('/',                  verifyToken, listAssignmentsValidation, listAssignments);
 router.post('/',                 verifyToken, createAssignmentValidation, createAssignment);
 router.patch('/:id/status',      verifyToken, updateAssignmentStatus);

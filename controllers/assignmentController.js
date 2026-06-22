@@ -155,11 +155,50 @@ const createAssignmentValidation = [
     body('status').optional().isIn(['pending', 'submitted', 'completed', 'excused']),
 ];
 
+// GET /api/assignments/suggestions — recommended start dates based on due date + points
+const getSuggestions = async (req, res, next) => {
+    const userId = req.user.userId;
+    try {
+        const [assignments] = await db.query(
+            `SELECT a.assignment_id, a.assignment_name, a.due_date, a.points_possible,
+                    a.status, a.progress, c.course_name, c.course_code, c.color
+             FROM assignments a
+             JOIN courses c ON a.course_id = c.course_id
+             WHERE a.user_id = ? AND a.status IN ('pending') AND a.due_date IS NOT NULL
+             ORDER BY a.due_date ASC`,
+            [userId]
+        );
+
+        const now = Date.now();
+        const suggestions = assignments.map((a) => {
+            const due      = new Date(a.due_date).getTime();
+            const daysLeft = Math.max(0, Math.round((due - now) / 864e5));
+            const daysNeeded = Math.max(1, Math.ceil((Number(a.points_possible) || 50) / 50));
+            const startDaysBeforeDue = Math.min(daysNeeded, 7);
+            const suggestedStartMs   = due - startDaysBeforeDue * 864e5;
+            const daysUntilStart     = Math.round((suggestedStartMs - now) / 864e5);
+
+            return {
+                ...a,
+                suggested_start_date: new Date(suggestedStartMs).toISOString().slice(0, 10),
+                days_left:            daysLeft,
+                days_until_start:     daysUntilStart,
+                urgency:              daysUntilStart <= 0 ? 'urgent' : daysUntilStart <= 2 ? 'soon' : 'upcoming',
+            };
+        });
+
+        res.json({ suggestions });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     listAssignments,
     createAssignment,
     updateAssignmentStatus,
     updateProgress,
+    getSuggestions,
     listAssignmentsValidation,
     createAssignmentValidation,
 };

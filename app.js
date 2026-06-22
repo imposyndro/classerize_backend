@@ -20,6 +20,8 @@ const calendarRoutes       = require('./routes/calendarRoutes');
 const notificationRoutes   = require('./routes/notificationRoutes');
 const aiRoutes             = require('./routes/aiRoutes');
 const searchRoutes         = require('./routes/searchRoutes');
+const scheduleRoutes       = require('./routes/scheduleRoutes');
+const focusRoutes          = require('./routes/focusRoutes');
 const errorHandler         = require('./middleware/errorHandler');
 
 const app = express();
@@ -67,6 +69,8 @@ app.use('/api/calendar',        calendarRoutes);
 app.use('/api/notifications',   notificationRoutes);
 app.use('/api/ai',              aiRoutes);
 app.use('/api/search',          searchRoutes);
+app.use('/api/schedule',        scheduleRoutes);
+app.use('/api/focus',           focusRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));
