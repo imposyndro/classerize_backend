@@ -98,6 +98,7 @@ DATABASE_NAME	Name of the MySQL database (default: classerize).
 JWT_SECRET	Secret key for signing JWT tokens.
 LMS_API_BASE_URL	Base URL for LMS API (e.g., Canvas).
 LMS_ACCESS_TOKEN	Access token for LMS API integration.
+FRONTEND_URL	URL of the frontend application, used for CORS configuration (default: http://localhost:3001).
 API Endpoints
 User Routes
 POST /api/auth/register: Register a new user.
