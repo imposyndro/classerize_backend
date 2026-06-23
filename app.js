@@ -1,6 +1,8 @@
 require('dotenv').config();
 
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
@@ -28,7 +30,25 @@ const errorHandler         = require('./middleware/errorHandler');
 
 const app = express();
 
+// ── Rate limiters ─────────────────────────────────────────────────────────────
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { error: 'Too many attempts. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { error: 'Too many AI requests. Slow down.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // ── Middleware ────────────────────────────────────────────────────────────────
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
@@ -40,7 +60,7 @@ app.use(cors({
 }));
 app.use(passport.initialize());
 
-// ── Swagger docs ──────────────────────────────────────────────────────────────
+// ── Swagger docs (dev only) ───────────────────────────────────────────────────
 const swaggerSpec = swaggerJsdoc({
     definition: {
         openapi: '3.0.0',
@@ -55,10 +75,14 @@ const swaggerSpec = swaggerJsdoc({
     },
     apis: ['./routes/*.js', './controllers/*.js'],
 });
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+    app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
+}
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api/auth',            authLimiter);
+app.use('/api/users/register',  authLimiter);
 app.use('/api/auth',            authRoutes);
 app.use('/api/auth',            googleAuthRoutes);
 app.use('/api/users',           userRoutes);
@@ -69,6 +93,7 @@ app.use('/api/assignments',     assignmentRoutes);
 app.use('/api/grades',          gradeRoutes);
 app.use('/api/calendar',        calendarRoutes);
 app.use('/api/notifications',   notificationRoutes);
+app.use('/api/ai',              aiLimiter);
 app.use('/api/ai',              aiRoutes);
 app.use('/api/search',          searchRoutes);
 app.use('/api/schedule',        scheduleRoutes);
